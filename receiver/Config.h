@@ -1,0 +1,181 @@
+/**
+ * Spider Robot - Configuration (Конфигурация)
+ * 
+ * Все настройки проекта в одном файле
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// ==========================================
+// АППАРАТНАЯ КОНФИГУРАЦИЯ
+// ==========================================
+
+// Bluetooth
+#define BT_SERIAL Serial1  // Hardware Serial на Mega (pins 18, 19)
+#define BT_BAUDRATE 38400
+
+// PCA9685
+#define PCA9685_ADDRESS 0x40
+#define PCA9685_OSC_CLOCK 25000000  // 25 MHz внутренний осциллятор
+
+// Частота PWM для сервоприводов SG90
+#define SERVO_FREQUENCY 50  // Hz
+
+// ==========================================
+// КОНФИГУРАЦИЯ СЕРВОПРИВОДОВ
+// ==========================================
+
+// Количество лап и сервоприводов
+#define NUM_LEGS 6
+#define SERVOS_PER_LEG 2
+#define TOTAL_SERVOS (NUM_LEGS * SERVOS_PER_LEG)
+
+// Углы сервоприводов SG90 (в градусах)
+#define SERVO_MIN_ANGLE 0
+#define SERVO_MAX_ANGLE 180
+#define SERVO_CENTER_ANGLE 90
+
+// Калибровка начальных позиций (углы в градусах)
+// Каждая лапа: [базовый сервопривод, сервопривод сустава]
+struct ServoCalibration {
+  int base_angle;      // Сервопривод основания лапы (поворот)
+  int joint_angle;     // Сервопривод сустава (сгиб)
+};
+
+// Начальная позиция всех лап (калибровка)
+const ServoCalibration INITIAL_POSITIONS[NUM_LEGS] = {
+  {90, 90},  // Лапа 0
+  {90, 90},  // Лапа 1
+  {90, 90},  // Лапа 2
+  {90, 90},  // Лапа 3
+  {90, 90},  // Лапа 4
+  {90, 90}   // Лапа 5
+};
+
+// PCA9685 каналы для каждой лапы
+// Лапа 0: каналы 0, 1
+// Лапа 1: каналы 2, 3
+// и т.д.
+#define getBaseServoChannel(leg) ((leg) * 2)
+#define getJointServoChannel(leg) ((leg) * 2 + 1)
+
+// ==========================================
+// ГЕОМЕТРИЯ ЛАпы
+// ==========================================
+
+// Длины сегментов лапы (в мм)
+#define LEG_BASE_LENGTH 30    // Длина первого сегмента (от базы до сустава)
+#define LEG_JOINT_LENGTH 50   // Длина второго сегмента (от сустава до конца)
+
+// Рабочие углы для обратной кинематики (в градусах)
+#define LEG_BASE_ANGLE_MIN 20
+#define LEG_BASE_ANGLE_MAX 160
+#define LEG_JOINT_ANGLE_MIN 30
+#define LEG_JOINT_ANGLE_MAX 150
+
+// Начальная позиция конца лапы (в мм от базы)
+// X: вперёд/назад, Y: вверх/вниз
+#define LEG_HOME_X 40
+#define LEG_HOME_Y -30
+
+// ==========================================
+// КОНФИГУРАЦИЯ ПОХОДКИ (GAIT)
+// ==========================================
+
+// Tripod группы (лапы 0-5)
+// Группа A: лапы 0, 2, 4
+// Группа B: лапы 1, 3, 5
+const byte TRIPOD_GROUP_A[3] = {0, 2, 4};
+const byte TRIPOD_GROUP_B[3] = {1, 3, 5};
+
+// Параметры шага
+#define STEP_HEIGHT 20        // Высота подъёма лапы (мм)
+#define STEP_LENGTH 30        // Длина шага (мм)
+#define STEP_FREQUENCY 2      // Частота шагов (циклов в секунду)
+
+// Скорости движения (мм/с и градусы/с)
+#define LEG_LIFT_SPEED 80       // Скорость подъёма лапы
+#define LEG_MOVE_SPEED 100      // Скорость перемещения лапы
+#define SERVO_MOVE_SPEED 60     // Скорость сервоприводов (градусов/с)
+
+// Фазы походки
+#define GAIT_PHASE_STANCE 0   // Опорная фаза (лапа на земле)
+#define GAIT_PHASE_SWING 1    // Фаза переноса (лапа в воздухе)
+
+// ==========================================
+// УПРАВЛЕНИЕ ДЖОЙСТИКОМ
+// ==========================================
+
+// Мёртвая зона джойстика (0-255, 128 = центр)
+#define JOYSTICK_DEADZONE 20
+
+// Максимальная скорость движения (мм/с)
+#define MAX_MOVE_SPEED 50
+
+// Максимальная скорость поворота (градусов/с)
+#define MAX_TURN_SPEED 60
+
+// Коэффициенты преобразования джойстика
+#define JOY_X_TO_SPEED_FACTOR (MAX_MOVE_SPEED / 127.0)
+#define JOY_Y_TO_SPEED_FACTOR (MAX_MOVE_SPEED / 127.0)
+
+// ==========================================
+// ТАЙМИНГИ
+// ==========================================
+
+// Частота обновления управления (мс)
+#define CONTROL_LOOP_INTERVAL 20  // 50 Hz
+
+// Частота обновления сервоприводов (мс)
+#define SERVO_UPDATE_INTERVAL 20  // 50 Hz
+
+// Таймаут Bluetooth (мс) - если нет данных, остановка
+#define BLUETOOTH_TIMEOUT 500
+
+// ==========================================
+// ОТЛАДКА
+// ==========================================
+
+// Раскомментировать для отладочной информации
+// #define DEBUG_BLUETOOTH
+// #define DEBUG_SERVOS
+// #define DEBUG_KINEMATICS
+// #define DEBUG_GAIT
+
+// ==========================================
+// СТРУКТУРЫ ДАННЫХ
+// ==========================================
+
+// Пакет данных от джойстика
+struct JoystickPacket {
+  byte start_byte;    // 0xFF
+  byte joy_x;         // 0-255 (128 = центр)
+  byte joy_y;         // 0-255 (128 = центр)
+  byte buttons;       // Битовая маска кнопок
+  byte checksum;      // Контрольная сумма
+  byte end_byte;      // 0xFE
+};
+
+// Состояние управления
+struct ControlState {
+  float speed_x;      // Вперёд/назад (-1.0 до 1.0)
+  float speed_y;      // Влево/вправо (-1.0 до 1.0)
+  bool button_pressed;
+  bool connected;
+  unsigned long last_update;
+};
+
+// Координаты лапы
+struct LegPosition {
+  float x;  // Вперёд/назад (мм)
+  float y;  // Вверх/вниз (мм)
+};
+
+// Углы сервоприводов лапы
+struct LegAngles {
+  float base_angle;   // Угол базового сервопривода (градусы)
+  float joint_angle;  // Угол сервопривода сустава (градусы)
+};
+
+#endif // CONFIG_H
