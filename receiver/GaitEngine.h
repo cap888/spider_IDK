@@ -32,6 +32,9 @@ private:
   float step_height;
   float step_frequency;
   
+  // Поворот (-1.0 до 1.0, отрицательный = против часовой)
+  float rotation;
+  
   // Базовые позиции лап (домашняя позиция)
   LegPosition leg_home_positions[NUM_LEGS];
   
@@ -80,11 +83,23 @@ private:
     return pos;
   }
   
-  /**
-   * Обновление целевых позиций для всех лап
-   */
+/**
+    * Обновление целевых позиций для всех лап
+    */
   void updateLegTargets(float dx, float dy) {
     for (int i = 0; i < NUM_LEGS; i++) {
+      
+      // Поворот: лапы одной стороны движутся вперёд, другие назад
+      float rotation_offset = 0;
+      if (rotation != 0) {
+        // Лапы 0,1,2 - одна сторона, лапы 3,4,5 - другая
+        if (i < 3) {
+          rotation_offset = -rotation * step_length;
+        } else {
+          rotation_offset = rotation * step_length;
+        }
+      }
+      
       if (leg_in_air[i]) {
         // Лапа в воздухе - движение к новой позиции
         float progress = phase_progress;
@@ -102,6 +117,10 @@ private:
         end_pos.x += dx * step_length / 2;
         start_pos.y += dy * step_length / 4;
         end_pos.y += dy * step_length / 4;
+        
+        // Добавить смещение поворота
+        start_pos.x += rotation_offset / 2;
+        end_pos.x += rotation_offset / 2;
         
         leg_target_positions[i] = calculateSwingPosition(
           progress, start_pos, end_pos, step_height
@@ -122,13 +141,17 @@ private:
         start_pos.y += dy * step_length / 4;
         end_pos.y += dy * step_length / 4;
         
+        // Добавить смещение поворота
+        start_pos.x += rotation_offset / 2;
+        end_pos.x += rotation_offset / 2;
+        
         leg_target_positions[i] = calculateStancePosition(progress, start_pos, end_pos);
       }
     }
   }
 
 public:
-  GaitEngine() : phase(false), phase_progress(0), enabled(false) {
+  GaitEngine() : phase(false), phase_progress(0), enabled(false), rotation(0) {
     step_length = STEP_LENGTH;
     step_height = STEP_HEIGHT;
     step_frequency = STEP_FREQUENCY;
@@ -165,6 +188,14 @@ public:
       leg_target_positions[i] = leg_home_positions[i];
       leg_in_air[i] = false;
     }
+  }
+  
+  /**
+   * Установка поворота
+   * @param turn -1.0 до 1.0 (отрицательный = против часовой стрелки)
+   */
+  void setRotation(float turn) {
+    rotation = constrain(turn, -1.0f, 1.0f);
   }
   
   /**

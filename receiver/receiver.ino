@@ -2,12 +2,11 @@
  * Spider Robot - Receiver (Робот)
  * 
  * Оборудование:
- * - Arduino Mega
- * - Bluetooth HC-05 (Slave mode)
+ * - Arduino Uno
  * - PCA9685 (16-channel PWM driver)
  * - 12x SG90 сервоприводов (6 лап, 2 серво на лапу)
  * 
- * Главная программа, объединяющая все компоненты
+ * Автономный режим: выполняет последовательность движений при включении
  */
 
 #include "RobotController.h"
@@ -27,30 +26,10 @@ void setup() {
     }
   }
   
-  Serial.println("\n=================================");
-  Serial.println("  Spider Robot Ready!");
-  Serial.println("=================================");
-  Serial.println("Waiting for Bluetooth connection...");
+  Serial.println("Spider Robot Ready!");
 }
 
 void loop() {
   // Главный цикл управления
   robot.update();
-  
-  // Отладочная информация (каждую секунду)
-  static unsigned long last_debug = 0;
-  if (millis() - last_debug > 1000) {
-    last_debug = millis();
-    
-    if (robot.isBluetoothConnected()) {
-      Serial.print("BT: Connected | ");
-      Serial.print("Speed: ");
-      Serial.print(robot.getCurrentSpeed(), 2);
-      Serial.print(" | ");
-      Serial.print("Gait: ");
-      Serial.println(robot.isGaitEnabled() ? "ON" : "OFF");
-    } else {
-      Serial.println("BT: Disconnected");
-    }
-  }
 }

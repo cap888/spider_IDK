@@ -11,16 +11,23 @@
 // АППАРАТНАЯ КОНФИГУРАЦИЯ
 // ==========================================
 
-// Bluetooth
-#define BT_SERIAL Serial1  // Hardware Serial на Mega (pins 18, 19)
-#define BT_BAUDRATE 38400
-
 // PCA9685
 #define PCA9685_ADDRESS 0x40
 #define PCA9685_OSC_CLOCK 25000000  // 25 MHz внутренний осциллятор
 
 // Частота PWM для сервоприводов SG90
 #define SERVO_FREQUENCY 50  // Hz
+
+// ==========================================
+// АВТОНОМНЫЙ РЕЖИМ
+// ==========================================
+
+#define STARTUP_DELAY 2000       // Задержка при включении (мс)
+#define STEP_COUNT 3             // Количество шагов
+#define ROTATION_SPEED 60        // Скорость поворота (градусов/с)
+#define LED_BLINK_FREQ_START 3   // Частота мигания LED при включении (Гц)
+#define LED_BLINK_FREQ_RUN 1     // Частота мигания LED при паузе (Гц)
+#define PAUSE_DURATION 500       // Пауза между шагами (мс)
 
 // ==========================================
 // КОНФИГУРАЦИЯ СЕРВОПРИВОДОВ
@@ -61,7 +68,7 @@ const ServoCalibration INITIAL_POSITIONS[NUM_LEGS] = {
 #define getJointServoChannel(leg) ((leg) * 2 + 1)
 
 // ==========================================
-// ГЕОМЕТРИЯ ЛАпы
+// ГЕОМЕТРИЯ ЛАПЫ
 // ==========================================
 
 // Длины сегментов лапы (в мм)
@@ -86,8 +93,8 @@ const ServoCalibration INITIAL_POSITIONS[NUM_LEGS] = {
 // Tripod группы (лапы 0-5)
 // Группа A: лапы 0, 2, 4
 // Группа B: лапы 1, 3, 5
-const byte TRIPOD_GROUP_A[3] = {0, 2, 4};
-const byte TRIPOD_GROUP_B[3] = {1, 3, 5};
+const uint8_t TRIPOD_GROUP_A[3] = {0, 2, 4};
+const uint8_t TRIPOD_GROUP_B[3] = {1, 3, 5};
 
 // Параметры шага
 #define STEP_HEIGHT 20        // Высота подъёма лапы (мм)
@@ -99,27 +106,6 @@ const byte TRIPOD_GROUP_B[3] = {1, 3, 5};
 #define LEG_MOVE_SPEED 100      // Скорость перемещения лапы
 #define SERVO_MOVE_SPEED 60     // Скорость сервоприводов (градусов/с)
 
-// Фазы походки
-#define GAIT_PHASE_STANCE 0   // Опорная фаза (лапа на земле)
-#define GAIT_PHASE_SWING 1    // Фаза переноса (лапа в воздухе)
-
-// ==========================================
-// УПРАВЛЕНИЕ ДЖОЙСТИКОМ
-// ==========================================
-
-// Мёртвая зона джойстика (0-255, 128 = центр)
-#define JOYSTICK_DEADZONE 20
-
-// Максимальная скорость движения (мм/с)
-#define MAX_MOVE_SPEED 50
-
-// Максимальная скорость поворота (градусов/с)
-#define MAX_TURN_SPEED 60
-
-// Коэффициенты преобразования джойстика
-#define JOY_X_TO_SPEED_FACTOR (MAX_MOVE_SPEED / 127.0)
-#define JOY_Y_TO_SPEED_FACTOR (MAX_MOVE_SPEED / 127.0)
-
 // ==========================================
 // ТАЙМИНГИ
 // ==========================================
@@ -127,18 +113,11 @@ const byte TRIPOD_GROUP_B[3] = {1, 3, 5};
 // Частота обновления управления (мс)
 #define CONTROL_LOOP_INTERVAL 20  // 50 Hz
 
-// Частота обновления сервоприводов (мс)
-#define SERVO_UPDATE_INTERVAL 20  // 50 Hz
-
-// Таймаут Bluetooth (мс) - если нет данных, остановка
-#define BLUETOOTH_TIMEOUT 500
-
 // ==========================================
 // ОТЛАДКА
 // ==========================================
 
 // Раскомментировать для отладочной информации
-// #define DEBUG_BLUETOOTH
 // #define DEBUG_SERVOS
 // #define DEBUG_KINEMATICS
 // #define DEBUG_GAIT
@@ -146,25 +125,6 @@ const byte TRIPOD_GROUP_B[3] = {1, 3, 5};
 // ==========================================
 // СТРУКТУРЫ ДАННЫХ
 // ==========================================
-
-// Пакет данных от джойстика
-struct JoystickPacket {
-  byte start_byte;    // 0xFF
-  byte joy_x;         // 0-255 (128 = центр)
-  byte joy_y;         // 0-255 (128 = центр)
-  byte buttons;       // Битовая маска кнопок
-  byte checksum;      // Контрольная сумма
-  byte end_byte;      // 0xFE
-};
-
-// Состояние управления
-struct ControlState {
-  float speed_x;      // Вперёд/назад (-1.0 до 1.0)
-  float speed_y;      // Влево/вправо (-1.0 до 1.0)
-  bool button_pressed;
-  bool connected;
-  unsigned long last_update;
-};
 
 // Координаты лапы
 struct LegPosition {
@@ -175,7 +135,7 @@ struct LegPosition {
 // Углы сервоприводов лапы
 struct LegAngles {
   float base_angle;   // Угол базового сервопривода (градусы)
-  float joint_angle;  // Угол сервопривода сустава (градусы)
+  float joint_angle; // Угол сервопривода сустава (градусы)
 };
 
 #endif // CONFIG_H
