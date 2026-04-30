@@ -225,7 +225,7 @@ public:
     
     // Инициализация сервоприводов
     if (!servos.begin()) {
-      Serial.println("ERROR: PCA9685 not found!");
+      Serial.println("ERROR: Multiservo Shield not found!");
       return false;
     }
     Serial.println("Servo controller ready");
