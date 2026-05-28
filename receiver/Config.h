@@ -2,7 +2,7 @@
  * Spider Robot - Configuration (Конфигурация)
  *
  * Все настройки проекта в одном файле
- * Arduino UNO + 12x Feetech FS90 (без PCA9685)
+ * Arduino UNO + 12x Feetech FS90 через Амперка Multiservo Shield v2
  */
 
 #ifndef CONFIG_H
@@ -109,6 +109,14 @@ const uint8_t TRIPOD_GROUP_B[3] = {1, 3, 5};
 // #define DEBUG_SERVOS
 // #define DEBUG_KINEMATICS
 // #define DEBUG_GAIT
+
+// Безопасная первая прошивка для проверки каналов сервоприводов.
+// Если раскомментировать SERVO_TEST_MODE, робот НЕ будет выполнять походку.
+// Он по очереди слегка качнёт каждый канал: центр -> центр+угол -> центр-угол -> центр.
+// Использовать при первом подключении, калибровке и поиске перепутанных каналов.
+#define SERVO_TEST_MODE
+#define SERVO_TEST_STEP_ANGLE 15
+#define SERVO_TEST_HOLD_MS 400
 
 // ==========================================
 // СТРУКТУРЫ ДАННЫХ

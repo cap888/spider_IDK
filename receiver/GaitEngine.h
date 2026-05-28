@@ -197,6 +197,20 @@ public:
   void setRotation(float turn) {
     rotation = constrain(turn, -1.0f, 1.0f);
   }
+
+  /**
+   * Инициализация tripod-фазы при старте движения.
+   * phase=false означает: группа A в воздухе, группа B на земле.
+   */
+  void startTripodPhase() {
+    phase = false;
+    phase_progress = 0;
+    phase_start_time = millis();
+    for (int i = 0; i < 3; i++) {
+      leg_in_air[TRIPOD_GROUP_A[i]] = true;
+      leg_in_air[TRIPOD_GROUP_B[i]] = false;
+    }
+  }
   
   /**
    * Обновление походки (вызывать в loop)
@@ -209,8 +223,9 @@ public:
       return;
     }
     
-    // Если нет движения, стоим в домашней позиции
-    if (abs(dx) < 0.05 && abs(dy) < 0.05) {
+    // Если нет ни поступательного движения, ни поворота — стоим в домашней позиции.
+    // Важно: rotation-only должен работать при dx=0 и dy=0.
+    if (abs(dx) < 0.05 && abs(dy) < 0.05 && abs(rotation) < 0.05) {
       resetToHome();
       return;
     }
@@ -278,6 +293,9 @@ public:
    * Включение/выключение походки
    */
   void setEnabled(bool enable) {
+    if (enable && !enabled) {
+      startTripodPhase();
+    }
     enabled = enable;
     if (!enable) {
       resetToHome();

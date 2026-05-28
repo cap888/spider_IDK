@@ -1,0 +1,2 @@
+# Python dependencies are not required for this Arduino firmware project.
+# Arduino library dependency: Multiservo by Amperka.

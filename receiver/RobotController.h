@@ -15,14 +15,14 @@
 #include "GaitEngine.h"
 
 enum RobotState {
-  STATE_BLINK,       // Мигание LED во время задержки
-  STATE_FORWARD,     // Шаги вперёд
-  STATE_PAUSE,      // Пауза между шагами
-  STATE_BACKWARD,   // Шаги назад
-  STATE_LEFT_STRAFE,// Стрейф влево
-  STATE_RIGHT_STRAFE,// Стрейф вправо
-  STATE_ROTATE,     // Поворот 360°
-  STATE_STOP        // Конец
+  STATE_BLINK,        // Мигание LED во время задержки
+  STATE_FORWARD,      // Шаги вперёд
+  STATE_PAUSE,        // Пауза между движениями
+  STATE_BACKWARD,     // Шаги назад
+  STATE_LEFT_STRAFE,  // Стрейф влево
+  STATE_RIGHT_STRAFE, // Стрейф вправо
+  STATE_ROTATE,       // Поворот 360°
+  STATE_STOP          // Конец
 };
 
 class RobotController {
@@ -32,9 +32,11 @@ private:
   
   // Состояние автомата
   RobotState currentState;
+  RobotState nextStateAfterPause;
   unsigned long stateStartTime;
   int stepsExecuted;
   float rotationAngle;
+  unsigned long lastRotationUpdate;
   
   // LED blinking
   bool ledState;
@@ -43,6 +45,13 @@ private:
   
   // Время последнего обновления
   unsigned long last_control_update;
+
+#ifdef SERVO_TEST_MODE
+  int testChannel;
+  int testPhase;
+  unsigned long testPhaseStart;
+  bool testDone;
+#endif
   
   /**
    * Преобразование целевой позиции в углы сервоприводов и установка
@@ -76,6 +85,81 @@ private:
       digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
     }
   }
+
+  void enterState(RobotState state) {
+    currentState = state;
+    stateStartTime = millis();
+    stepsExecuted = 0;
+  }
+
+  void enterPause(RobotState nextState) {
+    nextStateAfterPause = nextState;
+    enterState(STATE_PAUSE);
+  }
+
+#ifdef SERVO_TEST_MODE
+  /**
+   * Безопасный тест сервоприводов: по одному каналу, малый угол.
+   * Нужен до установки полной походки, чтобы проверить питание, номера каналов и направление.
+   */
+  void processServoTest() {
+    unsigned long now = millis();
+
+    if (testDone) {
+      digitalWrite(LED_BUILTIN, LOW);
+      return;
+    }
+
+    if (testChannel >= TOTAL_SERVOS) {
+      Serial.println("Servo test complete");
+      testDone = true;
+      return;
+    }
+
+    if (now - testPhaseStart < SERVO_TEST_HOLD_MS) {
+      return;
+    }
+
+    testPhaseStart = now;
+    int angle = SERVO_CENTER_ANGLE;
+
+    switch (testPhase) {
+      case 0:
+        angle = SERVO_CENTER_ANGLE;
+        Serial.print("Test channel ");
+        Serial.print(testChannel);
+        Serial.println(": center");
+        break;
+      case 1:
+        angle = SERVO_CENTER_ANGLE + SERVO_TEST_STEP_ANGLE;
+        Serial.print("Test channel ");
+        Serial.print(testChannel);
+        Serial.println(": plus");
+        break;
+      case 2:
+        angle = SERVO_CENTER_ANGLE - SERVO_TEST_STEP_ANGLE;
+        Serial.print("Test channel ");
+        Serial.print(testChannel);
+        Serial.println(": minus");
+        break;
+      default:
+        angle = SERVO_CENTER_ANGLE;
+        Serial.print("Test channel ");
+        Serial.print(testChannel);
+        Serial.println(": done");
+        testPhase = -1;
+        testChannel++;
+        break;
+    }
+
+    if (testChannel < TOTAL_SERVOS) {
+      servos.forceAngle(testChannel, angle);
+    }
+
+    digitalWrite(LED_BUILTIN, (testPhase % 2) ? HIGH : LOW);
+    testPhase++;
+  }
+#endif
   
   /**
    * Обработка последовательности движений
@@ -93,9 +177,7 @@ private:
         updateLED(true); // 3 Гц
         if (stateElapsed >= STARTUP_DELAY) {
           digitalWrite(LED_BUILTIN, LOW);
-          currentState = STATE_FORWARD;
-          stateStartTime = now;
-          stepsExecuted = 0;
+          enterState(STATE_FORWARD);
         }
         break;
         
@@ -104,9 +186,7 @@ private:
           if (stateElapsed >= stepDuration * (stepsExecuted + 1)) {
             stepsExecuted++;
             if (stepsExecuted >= STEP_COUNT) {
-              currentState = STATE_PAUSE;
-              stateStartTime = now;
-              stepsExecuted = 0;
+              enterPause(STATE_BACKWARD);
             }
           }
           gait.setEnabled(true);
@@ -124,9 +204,8 @@ private:
           setLegPosition(i, home.x, home.y);
         }
         if (stateElapsed >= pauseDuration) {
-          currentState = STATE_BACKWARD;
-          stateStartTime = now;
-          stepsExecuted = 0;
+          digitalWrite(LED_BUILTIN, LOW);
+          enterState(nextStateAfterPause);
         }
         break;
         
@@ -135,9 +214,7 @@ private:
           if (stateElapsed >= stepDuration * (stepsExecuted + 1)) {
             stepsExecuted++;
             if (stepsExecuted >= STEP_COUNT) {
-              currentState = STATE_PAUSE;
-              stateStartTime = now;
-              stepsExecuted = 0;
+              enterPause(STATE_LEFT_STRAFE);
             }
           }
           gait.setEnabled(true);
@@ -151,9 +228,7 @@ private:
           if (stateElapsed >= stepDuration * (stepsExecuted + 1)) {
             stepsExecuted++;
             if (stepsExecuted >= STEP_COUNT) {
-              currentState = STATE_PAUSE;
-              stateStartTime = now;
-              stepsExecuted = 0;
+              enterPause(STATE_RIGHT_STRAFE);
             }
           }
           gait.setEnabled(true);
@@ -167,9 +242,9 @@ private:
           if (stateElapsed >= stepDuration * (stepsExecuted + 1)) {
             stepsExecuted++;
             if (stepsExecuted >= STEP_COUNT) {
-              currentState = STATE_ROTATE;
-              stateStartTime = now;
+              enterState(STATE_ROTATE);
               rotationAngle = 0;
+              lastRotationUpdate = now;
             }
           }
           gait.setEnabled(true);
@@ -186,7 +261,9 @@ private:
         gait.update(0.0, 0.0); // только вращение
         updateLegPositions();
         
-        rotationAngle += ROTATION_SPEED * 0.02; // ~20ms interval
+        float dt = (now - lastRotationUpdate) / 1000.0;
+        lastRotationUpdate = now;
+        rotationAngle += ROTATION_SPEED * dt;
         if (rotationAngle >= 360.0) {
           currentState = STATE_STOP;
           gait.setEnabled(false);
@@ -208,9 +285,14 @@ private:
   }
 
 public:
-  RobotController() : currentState(STATE_BLINK), stateStartTime(0), 
-    stepsExecuted(0), rotationAngle(0), ledState(false), lastLedToggle(0),
-    blinkFreq(LED_BLINK_FREQ_START), last_control_update(0) {
+  RobotController() : currentState(STATE_BLINK), nextStateAfterPause(STATE_FORWARD),
+    stateStartTime(0), stepsExecuted(0), rotationAngle(0), lastRotationUpdate(0),
+    ledState(false), lastLedToggle(0), blinkFreq(LED_BLINK_FREQ_START),
+    last_control_update(0)
+#ifdef SERVO_TEST_MODE
+    , testChannel(0), testPhase(0), testPhaseStart(0), testDone(false)
+#endif
+  {
   }
   
   /**
@@ -236,9 +318,16 @@ public:
     
     stateStartTime = millis();
     lastLedToggle = millis();
+    lastRotationUpdate = millis();
+
+#ifdef SERVO_TEST_MODE
+    testPhaseStart = millis();
+    Serial.println("SERVO_TEST_MODE enabled: autonomous gait is disabled");
+#else
+    Serial.println("Starting autonomous mode...");
+#endif
     
     Serial.println("All systems ready!");
-    Serial.println("Starting autonomous mode...");
     
     return true;
   }
@@ -247,6 +336,12 @@ public:
    * Главный цикл (вызывать в loop)
    */
   void update() {
+#ifdef SERVO_TEST_MODE
+    processServoTest();
+    servos.update();
+    return;
+#endif
+
     // Проверка интервала управления
     unsigned long now = millis();
     if (now - last_control_update >= CONTROL_LOOP_INTERVAL) {
